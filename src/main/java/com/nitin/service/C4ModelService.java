@@ -32,9 +32,9 @@ public class C4ModelService {
 
     private String addC4Includes() {
         return """
-                !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
-                !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
-                !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml""";
+                !include C4_Context.puml
+                !include C4_Container.puml
+                !include C4_Component.puml""";
     }
 
     private String getC4Styling() {
@@ -68,7 +68,7 @@ public class C4ModelService {
     private String generateContextTemplate(String systemName) {
         return String.format("""
                 @startuml
-                !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+                !include C4_Context.puml
                 
                 LAYOUT_WITH_LEGEND()
                 HIDE_STEREOTYPE()
@@ -94,7 +94,7 @@ public class C4ModelService {
         String systemAlias = systemName.toLowerCase().replaceAll("\\s+", "_");
         return String.format("""
                 @startuml
-                !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+                !include C4_Container.puml
                 
                 LAYOUT_WITH_LEGEND()
                 HIDE_STEREOTYPE()
@@ -124,7 +124,7 @@ public class C4ModelService {
         String systemAlias = systemName.toLowerCase().replaceAll("\\s+", "_");
         return String.format("""
                 @startuml
-                !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+                !include C4_Component.puml
                 
                 LAYOUT_WITH_LEGEND()
                 HIDE_STEREOTYPE()

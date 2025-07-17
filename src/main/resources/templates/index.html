@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -35,9 +35,10 @@
 
     newDesignBtn.addEventListener('click', function(e) {
       e.preventDefault();
-      if (confirm('Are you sure you want to start a new design? This will clear the current conversation.')) {
+      if (confirm('Are you sure you want to start a new design? This will clear the current conversation and the design panel.')) {
         conversationHistory = [];
-        chatHistoryDiv.innerHTML = '<div class="message assistant-message"><p>Hello! Im your AI Architect Assistant. Tell me about the software system you want to design, and Ill generate a C4 model diagram and explanation for you.</p></div>';
+        chatHistoryDiv.innerHTML = '<div class="message assistant-message"><p>Hello! I\'m your AI Architect Assistant. Tell me about the software system you want to design, and I\'ll generate a C4 model diagram and explanation for you.</p></div>';
+        document.getElementById('designResultContent').innerHTML = '<div class="text-center p-5"><p class="text-muted">The generated design will appear here once you send a request.</p></div>';
       }
     });
 
@@ -51,7 +52,6 @@
 
       // Show the status notifier
       backendStatus.style.display = 'block';
-      // showLoadingIndicator();
 
       // Add user message to history
       conversationHistory.push({ message: requestText, sender: 'USER' });
@@ -65,32 +65,20 @@
       })
       .then(response => response.json())
       .then(data => {
-        // removeLoadingIndicator();
         if (data.success) {
-          // Add assistant message to history
           conversationHistory.push({ message: data.explanation, sender: 'ASSISTANT', design: data });
-          appendMessage(data.explanation, 'assistant');
-          //if (data.diagramPath) {
-          if (data.diagramFilename) { // Use diagramFilename for consistency
-            //appendDiagram(data.diagramPath, data.diagramFilename);
-            appendDiagram(data.diagramFilename);
-          }
-          if (data.plantUmlCode) {
-            appendPlantUMLCode(data.plantUmlCode);
-          }
+          appendMessage("Design is in the right panel", 'assistant');
+          updateDesignDisplay(data);
         } else {
           const errorMessage = data.errorMessage || 'An unknown error occurred.';
           conversationHistory.push({ message: errorMessage, sender: 'ASSISTANT' });
-          appendMessage('Error: ' + errorMessage, 'assistant error');
+          appendMessage('Error: ' + errorMessage, 'assistant-error');
         }
-        //chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight; // Scroll to bottom
       })
       .catch(error => {
-        //removeLoadingIndicator();
         console.error('Error:', error);
         conversationHistory.push({ message: 'Failed to connect to the server.', sender: 'ASSISTANT' });
-        appendMessage('Error: Failed to connect to the server.', 'assistant error');
-        //chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight; // Scroll to bottom
+        appendMessage('Error: Failed to connect to the server.', 'assistant-error');
       })
       .finally(() => {
       backendStatus.style.display = 'none';
@@ -101,90 +89,88 @@
     function appendMessage(text, sender) {
       const messageDiv = document.createElement('div');
       messageDiv.classList.add('message', `${sender}-message`);
-      //Basic Sanitization for text content to prevent HTML injection
       const p = document.createElement('p');
       p.textContent = text;
       messageDiv.appendChild(p);
-      // messageDiv.innerHTML = `<p>${text}</p>`;
       chatHistoryDiv.appendChild(messageDiv);
     }
 
-    function appendDiagram(diagramFilename) {
-      const diagramContainer = document.createElement('div');
-      diagramContainer.classList.add('message', 'assistant-message', 'diagram-message');
-      const imgPath = `/diagram/${diagramFilename}`; // Assuming diagramPath is like './uml-diagram/filename.png'
-      diagramContainer.innerHTML = `
-        <h5>Generated UML Diagram:</h5>
-        <div class="diagram-image-container">
-          <img src="${imgPath}" alt="Generated UML Diagram" class="img-fluid">
-        </div>
-        <a href="${imgPath}" class="btn btn-sm btn-outline-primary mt-2" download="${diagramFilename}">
-          <i class="fas fa-download me-1"></i>Download Diagram
-        </a>
-      `;
-      chatHistoryDiv.appendChild(diagramContainer);
-    }
-
-    function appendPlantUMLCode(code) {
-      const codeContainer = document.createElement('div');
-      codeContainer.classList.add('message', 'assistant-message', 'code-message');
-      const codeId = `plantuml-code-${Date.now()}`;
-      codeContainer.innerHTML = `
-        <h5>PlantUML Source Code:</h5>
-        <button class="btn btn-sm btn-outline-light mb-2" onclick="copyToClipboard(event, '${codeId}')">
-          <i class="fas fa-copy me-1"></i>Copy Code
-        </button>
-        <pre><code id="${codeId}" class="language-plantuml">${escapeHtml(code)}</code></pre>
-      `;
-      chatHistoryDiv.appendChild(codeContainer);
-      Prism.highlightElement(document.getElementById(codeId)); // Highlight the code
-    }
-
-     window.copyToClipboard = function(event, elementId) {
-      const element = document.getElementById(elementId)
-      if (!element) {
-        console.error('Could not find element with ID:', elementId);
+    function updateDesignDisplay(data) {
+      const designDisplay = document.getElementById('designResultContent');
+      if (!designDisplay) {
+        console.error("Fatal: Design display panel with ID 'designResultContent' not found.");
         return;
       }
 
-      const text = element.textContent;
+      let newContent = '';
+      if (data.explanation) {
+        newContent += `
+        <h4>Explanation</h4>
+        <p>${escapeHtml(data.explanation).replace(/\n/g, '<br>')}</p>
+        `;
+      }
 
+      if (data.diagramFilename) {
+        const imgPath = `/diagram/${data.diagramFilename}`;
+        newContent += `
+          <hr>
+          <h4>Diagram</h4>
+          <div class="diagram-image-container text-center border rounded p-3 bg-light">
+            <img src="${imgPath}" alt="UML Diagram" class="img-fluid">
+            <br>
+            <a href="${imgPath}" class="btn btn-sm btn-outline-primary mt-3" download="${data.diagramFilename}">
+              <i class="fas fa-download me-1"></i>Download Diagram
+            </a>
+          </div>
+         `;
+      }
+
+      if (data.plantUmlCode) {
+          const codeId = `design-plantuml-code-${Date.now()}`;
+          newContent += `
+            <hr>
+            <h4>PlantUML Code</h4>
+            <div class="position-relative">
+              <button class="btn btn-sm btn-outline-secondary position-absolute end-0 top-0 m-2" style="z-index:10;" onclick="copyToClipboard(event, '${codeId}')">
+                <i class="fas fa-copy me-1"></i>Copy
+              </button>
+              <pre><code id="${codeId}" class="language-plantuml">${escapeHtml(data.plantUmlCode)}</code></pre>
+            </div>
+          `;
+      }
+      designDisplay.innerHTML = newContent || '<div class="text-center p-5"><p class="text-muted">The assistant responded successfully, but the design was empty.</p></div>';
+
+      // Re-highlight the new code block if it exists
+      if (data.plantUmlCode) {
+          const newCodeBlock = designDisplay.querySelector('pre code');
+          if (newCodeBlock) {
+            Prism.highlightElement(newCodeBlock);
+          }
+      }
+    }
+
+    window.copyToClipboard = function(event, elementId) {
+      const element = document.getElementById(elementId)
+      if (!element) return;
+      const text = element.textContent;
       navigator.clipboard.writeText(text).then(function() {
         const button = event.target.closest('button');
         const originalHtml = button.innerHTML;
         button.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
-        button.classList.add('btn-success');
-        button.classList.remove('btn-outline-light');
-
+        button.classList.replace('btn-outline-secondary', 'btn-success');
         setTimeout(function() {
           button.innerHTML = originalHtml;
-          button.classList.remove('btn-success');
-          button.classList.add('btn-outline-light');
-          }, 2000);
-        }).catch(function(err) {
-          console.error('could not copy text: ', err);
-      });
-    }
-
-    function showLoadingIndicator() {
-      const loadingDiv = document.createElement('div');
-      loadingDiv.classList.add('message', 'assistant-message', 'loading-indicator');
-      loadingDiv.id = 'loadingIndicator';
-      loadingDiv.innerHTML = '<p><i class="fas fa-spinner fa-spin me-2"></i>Thinking...</p>';
-      chatHistoryDiv.appendChild(loadingDiv);
-      chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight;
-    }
-
-    function removeLoadingIndicator() {
-      const loadingDiv = document.getElementById('loadingIndicator');
-      if (loadingDiv) {
-        loadingDiv.remove();
-      }
+          button.classList.replace('btn-success', 'btn-outline-secondary');
+        }, 2000);
+      }).catch(err => console.error('Error: could not copy text: ', err));
     }
 
     // Helper to escape HTML for displaying code
     function escapeHtml(unsafe) {
-      return unsafe
+      if (unsafe === null || typeof unsafe === 'undefined') {
+        return '';
+      }
+      return String(unsafe)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
@@ -199,19 +185,16 @@
         fetch('/api/health')
             .then(response => response.json())
             .then(data => {
-                if (data.isLlamaRunning) {
-                    llamaStatus.classList.remove('text-danger');
-                    llamaStatus.classList.add('text-success');
-                    llamaStatus.querySelector('i').classList.remove('fa-fade');
-                } else {
-                    llamaStatus.classList.remove('text-success');
-                    llamaStatus.classList.add('text-danger');
-                    llamaStatus.querySelector('i').classList.add('fa-fade');
-                }
+                const icon = llamaStatus.querySelector('i');
+                llamaStatus.classList.remove('text-danger', 'text-success');
+                icon.classList.remove('fa-fade');
+
+                llamaStatus.classList.add(data.isLlamaRunning ? 'text-success' : 'text-danger');
+                if (!data.isLlamaRunning) icon.classList.add('fa-fade');
             })
             .catch(error => {
                 console.error('Error checking Llama status:', error);
-                llamaStatus.classList.remove('text-success');
+                llamaStatus.classList.remove('text-success', 'text-danger');
                 llamaStatus.classList.add('text-danger');
                 llamaStatus.querySelector('i').classList.add('fa-fade');
             });
@@ -225,7 +208,7 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container">
     <a class="navbar-brand" href="/">
-      <i class="fas fa-robot me-2"></i>My UML Designer
+      <i class="fas fa-robot me-2"></i>My Assistant
     </a>
     <div class="navbar-nav ms-auto">
       <div id="llamaStatus" class="nav-link">
@@ -238,18 +221,19 @@
   </div>
 </nav>
 
-<!-- Status Notifies element -->
 <!-- Status Notifier element -->
 <div id="backendStatus" class="alert alert-info text-center" role="alert" style="display: none; position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 1050; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
   <i class="fas fa-spinner fa-spin me-2"></i>The assistant is processing your request...
 </div>
 
 <div class="container my-5">
-  <div class="row justify-content-center">
-    <div class="col-lg-10">
+  <div class="row">
+
+    <!-- Column 1: Chat Interface -->
+    <div class="col-md-6">
       <div class="card chat-card">
         <div class="card-header bg-primary text-white">
-          <h5 class="mb-0"><i class="fas fa-comments me-2"></i>Architect Assistant Chat</h5>
+          <h5 class="mb-0"><i class="fas fa-comments me-2"></i>ArcRobo Chat</h5>
         </div>
         <div class="card-body chat-history" id="chatHistory">
           <!-- Chat messages will be appended here -->
@@ -267,6 +251,23 @@
         </div>
       </div>
     </div>
+
+    <!-- Column 2: Design Summary & Diagram -->
+    <div class="col-md-6">
+      <div id="designDisplay" class="sticky-top" style="top: 80px;">
+        <div class="card">
+          <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-project-diagram me-2"></i>Latest Design</h5>
+          </div>
+          <div class="card-body" id="designResultContent">
+            <div class="text-center p-5">
+              <p class="text-muted">The generated design will appear here once you send a request.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 

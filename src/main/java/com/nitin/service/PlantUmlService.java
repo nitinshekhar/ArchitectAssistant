@@ -33,19 +33,19 @@ public class PlantUmlService {
 
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String fileName = "diagram_" + timestamp +"." + imageFormat.toLowerCase();
-        String fullPath = outputDirectory + File.separator + fileName;
+        Path fullPath = outputPath.resolve(fileName);
 
         SourceStringReader reader = new SourceStringReader(umlSource);
 
         FileFormat format = getFileFormat(imageFormat);
         FileFormatOption option = new FileFormatOption(format);
-        try (FileOutputStream fos = new FileOutputStream(fullPath)){
+        try (FileOutputStream fos = new FileOutputStream(fullPath.toFile())){
             reader.outputImage(fos, option);
         }
-        return fullPath;
+        return fullPath.toString();
     }
 
-    public byte[] genereateDiagramBytes(String umlSource) throws IOException {
+    public byte[] generateDiagramBytes(String umlSource) throws IOException {
         SourceStringReader reader = new SourceStringReader(umlSource);
         FileFormat format = getFileFormat(imageFormat);
         FileFormatOption option = new FileFormatOption(format);

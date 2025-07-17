@@ -59,6 +59,15 @@
     border: 1px solid #dee2e6;
 }
 
+.assistant-error-message p {
+    background-color: #f8d7da; /* light red */
+    color: #721c24;
+    border-radius: 15px 15px 15px 0;
+    padding: 0.75rem 1rem;
+    max-width: 70%;
+    border: 1px solid #f5c6cb;
+}
+
 .assistant-message.diagram-message, .assistant-message.code-message {
     display: block;
     background-color: #f8f9fa;
@@ -114,4 +123,18 @@
     padding: 0.75rem 1rem;
     max-width: 70%;
     border: 1px solid #b2ebf2;
+}
+
+/* Styles for the new design display panel */
+#designDisplay .card {
+    /* Adjust height to fit screen, leaving space for nav and footer */
+    height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+#designDisplay .card-header {
+    position: sticky;
+    top: 0;
+    background-color: #f8f9fa;
+    z-index: 10;
 }
