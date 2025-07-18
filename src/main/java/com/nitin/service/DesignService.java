@@ -1,3 +1,4 @@
+
 package com.nitin.service;
 
 import com.nitin.dto.Conversation;
@@ -21,7 +22,7 @@ import java.util.regex.Pattern;
 public class DesignService {
 
     private static final Logger log = LoggerFactory.getLogger(DesignService.class);
-    private static final Pattern MARKDOWN_PATTERN = Pattern.compile("```plantuml\s*([\\s\\S]*?)```", Pattern.CASE_INSENSITIVE);
+    private static final Pattern MARKDOWN_PATTERN = Pattern.compile("```plantuml\\s*([\\s\\S]*?)```", Pattern.CASE_INSENSITIVE);
     private static final Pattern UML_PATTERN = Pattern.compile("(@startuml[\\s\\S]*?@enduml)", Pattern.CASE_INSENSITIVE);
 
     @Autowired
@@ -33,42 +34,33 @@ public class DesignService {
     @Autowired
     private C4ModelService c4ModelService;
 
+    private record DiagramResult(String diagramPath, String diagramFilename) {}
+
     private static final String DESIGN_PROMPT_TEMPLATE = """
-            You are a software architect expert specializing in C4 model diagrams. You will be provided with a user request for a design.
-            
-            Please provide a detailed software architecture design using the C4 model approach that includes:
-            1. A brief explanation of the system architecture
-            2. Key components, their responsibilities, and relationships
-            3. A C4 model diagram using PlantUML C4 syntax
-            
-            For the C4 diagram, please:
-            - Start with a Context diagram (Level 1) showing the system and external actors
-            - Include Container diagram (Level 2) if the system is complex enough
-            - Use proper C4 PlantUML syntax with Person(), System(), Container(), Component() elements
-            - Include clear relationships with Rel() statements
-            - Add meaningful descriptions for each element
-            - Use appropriate C4 styling and layout
-            
-            C4 PlantUML syntax reference:
-            - Person(alias, label, description)
-            - System(alias, label, description)
-            - Container(alias, label, technology, description)
-            - Component(alias, label, technology, description)
-            - Rel(from, to, label, technology)
-            - Rel_Back(), Rel_Neighbor(), Rel_Up(), Rel_Down() for positioning
-            
-            Please provide the explanation first, followed by the PlantUML diagram inside a markdown code block.
-            Do NOT include '!include' statements in the diagram, as they will be added automatically.
-            Example of the required markdown block format:
+            You are a software architect expert specializing in C4 model diagrams.
+            Your task is to create a software architecture design based on the user's request.
+            Do NOT include any internal thought processes, planning, or `<think>` sections in your response.
+
+            You MUST follow these instructions:
+            1.  Provide a clear explanation of the architecture, its key components, and their relationships.
+            2.  After the explanation, create a C4 model diagram using PlantUML syntax.
+            3.  The diagram MUST be enclosed in a ```plantuml markdown block.
+            4.  You MUST use the official C4-PlantUML syntax, including elements like Person(), System(), Container(), and Rel().
+            5.  DO NOT use ASCII art or box-drawing characters like '+----+' to draw the diagram. You must use the C4-PlantUML keywords.
+
+            Here is an example of a CORRECT C4 PlantUML diagram:
             ```plantuml
             @startuml
-            
-            [Your C4 PlantUML code here]
-            
+            !include C4_Context.puml
+
+            Person(customer, "Customer", "A user of the system.")
+            System(mySystem, "My Awesome System", "The system being designed.")
+
+            Rel(customer, mySystem, "Uses")
             @enduml
             ```
-            
-            Please ensure the C4 diagram is syntactically correct and follows C4 model principles.
+
+            Now, generate the design for the user's request.
             """;
 
     public DesignResponse generateDesign(String userRequest, List<Conversation> conversationHistory) {
@@ -89,109 +81,67 @@ public class DesignService {
 
             // Generate response from LLaMA
             String response = chatLanguageModel.generate(messages).content().text();
-            log.info("LLaMA response: " + response);
+            log.info("Full LLaMA response: " + response);
 
             // Parse the response
-            return parseDesignResponse(response, userRequest, conversationHistory);
+            return parseDesignResponse(response, userRequest);
 
         } catch (Exception e) {
             log.error("Error generating design: " + e.getMessage());
-            return DesignResponse.builder()
-                    .userRequest(userRequest)
-                    .explanation("Error generating design: " + e.getMessage())
-                    .plantUmlCode("")
-                    .success(false)
-                    .conversation(Conversation.builder()
-                            .message("Error generating design: " + e.getMessage())
-                            .sender(Conversation.Sender.ASSISTANT)
-                            .build())
-                    .build();
+            return buildErrorResponse(userRequest, "Error generating design: " + e.getMessage());
         }
     }
 
-    private String addLocalIncludes(String plantUmlCode) {
-        // Strip any remote or local !include directives the AI might have added.
-        // The (?m) flag enables multi-line mode so '^' matches the start of each line.
-        String strippedCode = plantUmlCode.replaceAll("(?m)^\\s*!include.*\\R?", "");
+    private DesignResponse parseDesignResponse(String response, String userRequest) {
+        String explanation = extractExplanation(response);
+        String plantUmlCode = extractPlantUMLCode(response);
 
-        String localIncludes = """
-                !include C4_Context.puml
-                !include C4_Container.puml
-                !include C4_Component.puml
-                
-                """;
-
-        // Prepend our controlled, local includes to the AI-generated code
-        return localIncludes + strippedCode;
-    }
-
-    private DesignResponse parseDesignResponse(String response, String userRequest, List<Conversation> conversationHistory) {
-        DesignResponse.DesignResponseBuilder builder = DesignResponse.builder()
-                .userRequest(userRequest);
+        if (plantUmlCode.isEmpty()) {
+            return buildNoUmlResponse(userRequest, explanation);
+        }
 
         try {
-            // Extract explanation
-            String explanation = extractSection(response, "EXPLANATION:", "PLANTUML:");
-            if (explanation.isEmpty()) {
-                // Fallback: use everything before PlantUML block
-                explanation = extractBeforePlantUML(response);
-            }
-
-            // Extract PlantUML code
-            String plantUmlCode = extractPlantUMLCode(response);
-
-            // Validate and fix UML syntax
-            if (!plantUmlCode.isEmpty()) {
-                // Programmatically add local includes for security and reliability
-                plantUmlCode = addLocalIncludes(plantUmlCode);
-
-                plantUmlCode = c4ModelService.validateAndEnhanceC4Syntax(plantUmlCode);
-
-                // Generate diagram
-                String diagramPath = plantUmlService.generateDiagram(plantUmlCode);
-
-                // Add the file name
-                String diagramFilename = java.nio.file.Paths.get(diagramPath).getFileName().toString();
-
-                return builder
-                        .explanation(explanation)
-                        .plantUmlCode(plantUmlCode)
-                        .diagramPath(diagramPath)
-                        .diagramFilename(diagramFilename)
-                        .success(true)
-                        .conversation(Conversation.builder()
-                                .message(explanation)
-                                .sender(Conversation.Sender.ASSISTANT)
-                                .build())
-                        .build();
-            } else {
-                String errorMessage = "No valid PlantUML code found in response";
-                return builder
-                        .explanation(explanation)
-                        .plantUmlCode("")
-                        .success(false)
-                        .errorMessage(errorMessage)
-                        .conversation(Conversation.builder()
-                                .message(errorMessage)
-                                .sender(Conversation.Sender.ASSISTANT)
-                                .build())
-                        .build();
-            }
-
+            DiagramResult diagramResult = generateDiagramFromUml(plantUmlCode);
+            return buildSuccessResponse(userRequest, explanation, plantUmlCode, diagramResult);
         } catch (IOException e) {
             log.error("Error generating diagram: " + e.getMessage());
-            String errorMessage = "Error generating diagram: " + e.getMessage();
-            return builder
-                    .explanation(extractBeforePlantUML(response))
-                    .plantUmlCode("")
-                    .success(false)
-                    .errorMessage(errorMessage)
-                    .conversation(Conversation.builder()
-                            .message(errorMessage)
-                            .sender(Conversation.Sender.ASSISTANT)
-                            .build())
-                    .build();
+            return buildErrorResponse(userRequest, "Error generating diagram: " + e.getMessage());
         }
+    }
+
+    private DiagramResult generateDiagramFromUml(String plantUmlCode) throws IOException {
+        String processedUml = c4ModelService.validateAndEnhanceC4Syntax(plantUmlCode);
+        String diagramPath = plantUmlService.generateDiagram(processedUml);
+        String diagramFilename = java.nio.file.Paths.get(diagramPath).getFileName().toString();
+        return new DiagramResult(diagramPath, diagramFilename);
+    }
+
+    private String extractExplanation(String response) {
+        String explanation = extractSection(response, "EXPLANATION:", "PLANTUML:");
+        return explanation.isEmpty() ? extractBeforePlantUML(response) : explanation;
+    }
+
+    private String extractPlantUMLCode(String text) {
+        log.debug("Attempting to extract PlantUML code from text:\n{}", text);
+        StringBuilder allUmlCode = new StringBuilder();
+
+        Matcher markdownMatcher = MARKDOWN_PATTERN.matcher(text);
+        boolean found = false;
+        while (markdownMatcher.find()) {
+            if (!found) {
+                log.info("Found PlantUML code within markdown block(s).");
+                found = true;
+            }
+            String umlBlock = markdownMatcher.group(1).trim();
+            allUmlCode.append(umlBlock).append("\n");
+        }
+
+        if (found) {
+            return allUmlCode.toString();
+        }
+
+        log.warn("No valid PlantUML code found in the response.");
+        return "";
     }
 
     private String extractSection(String text, String startMarker, String endMarker) {
@@ -218,23 +168,46 @@ public class DesignService {
         return text.trim();
     }
 
-    private String extractPlantUMLCode(String text) {
-        // Try to extract from markdown code block first
-        Matcher markdownMatcher = MARKDOWN_PATTERN.matcher(text);
+    private DesignResponse buildSuccessResponse(String userRequest, String explanation, String plantUmlCode, DiagramResult diagramResult) {
+        return DesignResponse.builder()
+                .userRequest(userRequest)
+                .explanation(explanation)
+                .plantUmlCode(plantUmlCode)
+                .diagramPath(diagramResult.diagramPath())
+                .diagramFilename(diagramResult.diagramFilename())
+                .success(true)
+                .conversation(Conversation.builder()
+                        .message(explanation)
+                        .sender(Conversation.Sender.ASSISTANT)
+                        .build())
+                .build();
+    }
 
-        if (markdownMatcher.find()) {
-            log.info("Mark Down Matcher Found");
-            return markdownMatcher.group(1).trim();
-        }
+    private DesignResponse buildNoUmlResponse(String userRequest, String explanation) {
+        return DesignResponse.builder()
+                .userRequest(userRequest)
+                .explanation(explanation)
+                .plantUmlCode("")
+                .success(false)
+                .errorMessage("No valid PlantUML code found in response")
+                .conversation(Conversation.builder()
+                        .message("No valid PlantUML code found in response")
+                        .sender(Conversation.Sender.ASSISTANT)
+                        .build())
+                .build();
+    }
 
-        // Try to extract from @startuml...@enduml block
-        Matcher umlMatcher = UML_PATTERN.matcher(text);
-
-        if (umlMatcher.find()) {
-            log.info("UML Matcher Found");
-            return umlMatcher.group(1).trim();
-        }
-
-        return "";
+    private DesignResponse buildErrorResponse(String userRequest, String errorMessage) {
+        return DesignResponse.builder()
+                .userRequest(userRequest)
+                .explanation(errorMessage)
+                .plantUmlCode("")
+                .success(false)
+                .errorMessage(errorMessage)
+                .conversation(Conversation.builder()
+                        .message(errorMessage)
+                        .sender(Conversation.Sender.ASSISTANT)
+                        .build())
+                .build();
     }
 }

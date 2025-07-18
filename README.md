@@ -15,7 +15,43 @@ The Architect Assistant is a Spring Boot application designed to assist with arc
 ## Prerequisites
 *   Java 21 or higher
 *   Maven
-*   A `llama.cpp` server running (e.g., `llama.cpp` with a compatible model like Llama 2)
+
+## Setup
+
+### 1. Install Graphviz
+PlantUML uses Graphviz to render diagrams. Install it using your system's package manager:
+
+*   **macOS (using Homebrew)**:
+    ```bash
+    brew install graphviz
+    ```
+*   **Linux (Debian/Ubuntu)**:
+    ```bash
+    sudo apt-get install graphviz
+    ```
+*   **Windows**: Download and install from the [Graphviz website](https://graphviz.org/download/). Make sure to add it to your system's PATH.
+
+### 2. Set up `llama.cpp` Server
+This application relies on a running `llama.cpp` server to provide AI capabilities. Follow these steps:
+
+*   **Clone `llama.cpp`**:
+    ```bash
+    git clone https://github.com/ggerganov/llama.cpp
+    cd llama.cpp
+    ```
+*   **Build `llama.cpp`**:
+    ```bash
+    make
+    ```
+    (Consider building with GPU support if you have one, e.g., `make -j LLAMA_CUBLAS=1` for NVIDIA GPUs).
+
+*   **Download a compatible model**: Obtain a GGUF-formatted model (e.g., Llama 2, DeepSeek, etc.). Place it in a directory of your choice (e.g., `llama.cpp/models`).
+
+*   **Run the `llama.cpp` server**:
+    ```bash
+    ./server -m /path/to/your/model.gguf --port 8081 --ctx-size 4096 -b 1024 -ngl 30
+    ```
+    Adjust `/path/to/your/model.gguf`, `--port`, `--ctx-size`, `-b`, and `-ngl` (for GPU offloading) as needed. Ensure the `--port` matches `llama.base-url` in `application.properties`.
 
 ## Configuration
 
@@ -31,8 +67,8 @@ llama.temperature=0.7
 llama.max-tokens=2048
 llama.model-name="llama"
 
-plantuml.output-directory="/Users/nshekhar/download/uml-diagram"
-plantuml.image-format="PNG"
+plantuml.output-directory=target/diagrams
+plantuml.image-format=PNG
 
 logging.level.com.nitin=DEBUG
 logging.level.dev.lanchain4j=DEBUG

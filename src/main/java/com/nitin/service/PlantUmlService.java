@@ -26,6 +26,7 @@ public class PlantUmlService {
     private String imageFormat;
 
     public String generateDiagram(String umlSource) throws IOException {
+        String validatedUml = validateAndFixUmlSyntax(umlSource);
         Path outputPath = Paths.get(outputDirectory);
         if (!Files.exists(outputPath)) {
             Files.createDirectories(outputPath);
@@ -35,7 +36,7 @@ public class PlantUmlService {
         String fileName = "diagram_" + timestamp +"." + imageFormat.toLowerCase();
         Path fullPath = outputPath.resolve(fileName);
 
-        SourceStringReader reader = new SourceStringReader(umlSource);
+        SourceStringReader reader = new SourceStringReader(validatedUml);
 
         FileFormat format = getFileFormat(imageFormat);
         FileFormatOption option = new FileFormatOption(format);

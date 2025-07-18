@@ -10,6 +10,7 @@ import com.nitin.service.PlantUmlService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -64,21 +65,28 @@ public class AssistantController {
         return ResponseEntity.ok(response);
     }
 
+    @Autowired
+    private ApplicationContext applicationContext;
+
     @GetMapping("/diagram/{filename}")
     public ResponseEntity<Resource> getDiagram(@PathVariable String filename) {
         try {
             Path filePath = Paths.get(storageLocation).resolve(filename).normalize();
-            //File file = new File(filePath);
+            log.debug("Attempting to serve diagram from path: {}", filePath.toAbsolutePath());
 
-            //if(!file.exists()) {
-            //    return ResponseEntity.notFound().build();
-            if (!Files.exists(filePath) || !filePath.startsWith(Paths.get(storageLocation).normalize())) {
+            Resource resource = new FileSystemResource(filePath.toFile());
+
+            if (!resource.exists()) {
+                log.warn("Diagram file not found at resolved path: {}", filePath.toAbsolutePath());
                 return ResponseEntity.notFound().build();
             }
 
-            Resource resource = new FileSystemResource(filePath);
             String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                contentType = "application/octet-stream";
+            }
 
+            log.info("Successfully served diagram: {}", filename);
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")

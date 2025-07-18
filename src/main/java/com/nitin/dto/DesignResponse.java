@@ -50,6 +50,9 @@ public class DesignResponse {
 
         public DesignResponseBuilder diagramPath(String diagramPath) {
             response.diagramPath = diagramPath;
+            if (diagramPath != null && !diagramPath.isEmpty()) {
+                response.diagramFilename = new java.io.File(diagramPath).getName();
+            }
             return this;
         }
 

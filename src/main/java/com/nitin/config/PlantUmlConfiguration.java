@@ -39,6 +39,7 @@ public class PlantUmlConfiguration {
                 }
             }
             System.setProperty("plantuml.include.path", tempDir.toAbsolutePath().toString());
+            System.setProperty("RELATIVE_INCLUDE", "true");
             log.info("Successfully set PlantUML include path to temporary directory: {}", tempDir.toAbsolutePath());
         } catch (IOException e) {
             log.error("Could not set up PlantUML local includes. Local C4 diagram generation may fail.", e);

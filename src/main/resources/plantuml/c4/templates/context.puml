@@ -1,0 +1,16 @@
+@startuml
+!include C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+HIDE_STEREOTYPE()
+
+title System Context diagram for {systemName}
+
+Person(user, "User", "A user of the system")
+System({systemAlias}_system, "{systemName} System", "The main system")
+System_Ext(external_system, "External System", "External dependency")
+
+Rel(user, {systemAlias}_system, "Uses")
+Rel({systemAlias}_system, external_system, "Integrates with")
+
+@enduml

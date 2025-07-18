@@ -1,0 +1,24 @@
+@startuml
+!include C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+HIDE_STEREOTYPE()
+
+title Container diagram for {systemName}
+
+Person(user, "User", "A user of the system")
+
+System_Boundary({systemAlias}_boundary, "{systemName} System") {
+    Container(web_app, "Web Application", "Technology", "Description")
+    Container(api, "API Application", "Technology", "Description")
+    ContainerDb(database, "Database", "Technology", "Description")
+}
+
+System_Ext(external_system, "External System", "External dependency")
+
+Rel(user, web_app, "Uses", "HTTPS")
+Rel(web_app, api, "Makes API calls to", "JSON/HTTPS")
+Rel(api, database, "Reads from and writes to", "JDBC")
+Rel(api, external_system, "Integrates with", "JSON/HTTPS")
+
+@enduml

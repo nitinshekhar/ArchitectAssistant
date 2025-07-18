@@ -1,9 +1,5 @@
 ' convert it with additional command line argument -DRELATIVE_INCLUDE="relative/absolute" to use locally
-!if %variable_exists("RELATIVE_INCLUDE")
-  !include ./C4_Context.puml
-!else
-  !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
-!endif
+!include ./C4_Context.puml
 
 ' Scope: A single software system.
 ' Primary elements: Containers within the software system in scope.

@@ -112,17 +112,47 @@
 
       if (data.diagramFilename) {
         const imgPath = `/diagram/${data.diagramFilename}`;
+        const diagramContainerId = `diagram-container-${Date.now()}`;
         newContent += `
           <hr>
           <h4>Diagram</h4>
-          <div class="diagram-image-container text-center border rounded p-3 bg-light">
-            <img src="${imgPath}" alt="UML Diagram" class="img-fluid">
-            <br>
-            <a href="${imgPath}" class="btn btn-sm btn-outline-primary mt-3" download="${data.diagramFilename}">
-              <i class="fas fa-download me-1"></i>Download Diagram
-            </a>
+          <div id="${diagramContainerId}" class="diagram-image-container text-center border rounded p-3 bg-light">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading diagram...</span>
+            </div>
+            <p class="text-muted mt-2">Generating diagram...</p>
           </div>
          `;
+
+        // Asynchronously load the image to improve UX
+        const img = new Image();
+        img.src = imgPath;
+        img.alt = "UML Diagram";
+        img.className = "img-fluid";
+
+        img.onload = () => {
+          const diagramContainer = document.getElementById(diagramContainerId);
+          if (diagramContainer) {
+            diagramContainer.innerHTML = ''; // Clear the spinner
+            diagramContainer.appendChild(img);
+            
+            const downloadLink = document.createElement('a');
+            downloadLink.href = imgPath;
+            downloadLink.className = "btn btn-sm btn-outline-primary mt-3";
+            downloadLink.setAttribute('download', data.diagramFilename);
+            downloadLink.innerHTML = '<i class="fas fa-download me-1"></i>Download Diagram';
+            
+            diagramContainer.appendChild(document.createElement('br'));
+            diagramContainer.appendChild(downloadLink);
+          }
+        };
+
+        img.onerror = () => {
+            const diagramContainer = document.getElementById(diagramContainerId);
+            if(diagramContainer) {
+                diagramContainer.innerHTML = '<p class="text-danger">Error: Could not load diagram image.</p>';
+            }
+        };
       }
 
       if (data.plantUmlCode) {

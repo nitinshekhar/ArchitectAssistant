@@ -1,0 +1,25 @@
+@startuml
+!include C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+HIDE_STEREOTYPE()
+
+title Component diagram for {systemName} - API Application
+
+Container(web_app, "Web Application", "Technology", "Description")
+ContainerDb(database, "Database", "Technology", "Description")
+System_Ext(external_system, "External System", "External dependency")
+
+Container_Boundary({systemAlias}_api, "API Application") {
+    Component(controller, "Controller", "Technology", "Description")
+    Component(service, "Service", "Technology", "Description")
+    Component(repository, "Repository", "Technology", "Description")
+}
+
+Rel(web_app, controller, "Makes API calls to", "JSON/HTTPS")
+Rel(controller, service, "Uses")
+Rel(service, repository, "Uses")
+Rel(repository, database, "Reads from and writes to", "JDBC")
+Rel(service, external_system, "Integrates with", "JSON/HTTPS")
+
+@enduml
